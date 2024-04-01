@@ -1,0 +1,4 @@
+requests~=2.31.0
+aiohttp~=3.9.3
+pytz~=2024.1
+python-dateutil~=2.9.0.post0
