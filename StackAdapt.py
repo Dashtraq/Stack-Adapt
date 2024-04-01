@@ -250,6 +250,7 @@ async def main(_days_offset_):
 
     await asyncio.gather(*asyncio.all_tasks() - {asyncio.current_task()})
 
+    return True
 
 #######################################################################################################################
 #
@@ -258,8 +259,6 @@ async def main(_days_offset_):
 #######################################################################################################################
 
 databox = databox.Databox()
-
-asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 asyncio.run(main(_days_offset_=5))
 
