@@ -90,7 +90,6 @@ class StackAdapt:
             async with client as session:
                 url = self.requestURL
 
-                print('Stack Adapt >', url)
                 body = {"query": query_str}
 
                 async with session.post(url=url, json=body) as response:
@@ -115,15 +114,14 @@ class StackAdapt:
             <list>: List of API compatible Date strings
         """
 
-        tz = pytz.timezone('US/Central')
-        time_today = time.time()
-        time_start = time.time() - _offset_ * 24 * 60 * 60
+        tz = pytz.timezone('UTC')
+        dt_today = datetime.datetime.fromtimestamp(time.time(), tz=tz)
+        dt_start = (dt_today - relativedelta(days=_offset_))
         dates = []
 
-        while time_start < time_today:
-            dt_start = datetime.datetime.fromtimestamp(time_start, tz=tz)
-            dates.append(dt_start.strftime('%Y-%m-%dT%H:%M:%S.000%z'))
-            time_start = time_start + 24 * 60 * 60
+        while dt_start < dt_today:
+            dates.append(dt_start.strftime('%Y-%m-%d'))
+            dt_start = dt_start + datetime.timedelta(days=1)
 
         return dates
 
@@ -195,7 +193,7 @@ class StackAdapt:
 
         return data
 
-    async def footfall_report(self, campaigns_dict, start_date_time):
+    async def footfall_report(self, campaigns_dict, start_date):
 
         """Fetches all relevant reports
         Args:
@@ -210,9 +208,9 @@ class StackAdapt:
         grouped_advertiser_values = []
         grouped_advertiser_day_values = []
         grouped_advertiser_hour_values = []
-        push_date_time = F'{start_date_time[0:10]}T12:00:00.000Z'
 
         for campaign_id, [campaign_name, advertiser_name] in campaigns_dict.items():
+            start_date_time = F'{start_date}T12:00:00.000Z'
             query_str = F'query {{\n  footfallTrackingStats(filterBy: {{\n    locationSetIds: [882],' \
                         F'\n     campaignIds: [\"{campaign_id}\"]' \
                         F'\n     startTime: \"{start_date_time}\",' \
@@ -225,8 +223,6 @@ class StackAdapt:
                         F'    ' \
                         F'startDate\n      endDate\n    }}\n  }}\n}}'
             # Gets all the data
-            print('Fetching data >', 'date >', start_date_time,
-                  ' campaign_id >', campaign_id, ' campaign_name >', campaign_name)
             result = await self.fetch(query_str)
             if not result['data']['data']:
                 continue
@@ -238,30 +234,30 @@ class StackAdapt:
 
             databox.append(self.DataboxToken, {
                 '$Visits': summary_data['footfallConv'],
-                'date': push_date_time,
+                'date': start_date_time,
                 'Campaign': campaign_name
             })
 
             grouped_advertiser_values.append({
                 '$Visits': summary_data['footfallConv'],
-                'date': push_date_time,
+                'date': start_date_time,
                 'Advertiser': advertiser_name
             })
 
             for report in local_day_of_week_data:
                 data.append({
                     '$Visits': report['footfallConv'],
-                    'date': push_date_time,
+                    'date': start_date_time,
                     report["timeString"]: campaign_name
                 })
                 databox.append(self.DataboxToken, {
                     '$Visits': report['footfallConv'],
-                    'date': push_date_time,
+                    'date': start_date_time,
                     report["timeString"]: campaign_name
                 })
                 grouped_advertiser_day_values.append({
                     '$Visits_Advertiser': report['footfallConv'],
-                    'date': push_date_time,
+                    'date': start_date_time,
                     'Dimension': report["timeString"],
                     'Advertiser': advertiser_name
                 })
@@ -269,45 +265,48 @@ class StackAdapt:
             for report in local_hour_of_day_data:
                 data.append({
                     '$Visits': report['footfallConv'],
-                    'date': push_date_time,
+                    'date': start_date_time,
                     report["timeString"]: campaign_name
                 })
                 databox.append(self.DataboxToken, {
                     '$Visits': report['footfallConv'],
-                    'date': push_date_time,
+                    'date': start_date_time,
                     report["timeString"]: campaign_name
                 })
                 grouped_advertiser_hour_values.append({
                     '$Visits_Advertiser': report['footfallConv'],
-                    'date': push_date_time,
+                    'date': start_date_time,
                     'Dimension': report["timeString"],
                     'Advertiser': advertiser_name
                 })
 
-            grouped_advertiser = self.group_data(self, _data=grouped_advertiser_values, keys=['Advertiser', 'date'])
-            databox.append(self.DataboxToken, grouped_advertiser)
+        grouped_advertiser = self.group_data(self, _data=grouped_advertiser_values, keys=['Advertiser', 'date'])
+        databox.append(self.DataboxToken, grouped_advertiser)
+        print('Grouped advertiser for ', start_date, ' = ', grouped_advertiser)
 
-            grouped_advertiser_day = self.group_data2(
-                self,
-                _data=grouped_advertiser_day_values,
-                keys=['Advertiser', 'date']
-            )
-            databox.append(
-                self.DataboxToken,
-                [{'$Visits_Advertiser': x['$Visits_Advertiser'], 'date': x['date'], x['Dimension']: x['Advertiser']} for x in grouped_advertiser_day]
-            )
+        grouped_advertiser_day = self.group_data2(
+            self,
+            _data=grouped_advertiser_day_values,
+            keys=['Advertiser', 'date']
+        )
+        databox.append(
+            self.DataboxToken,
+            [{'$Visits_Advertiser': x['$Visits_Advertiser'], 'date': x['date'], x['Dimension']: x['Advertiser']} for x
+             in grouped_advertiser_day]
+        )
 
-            grouped_advertiser_hour = self.group_data2(
-                self,
-                _data=grouped_advertiser_hour_values,
-                keys=['Advertiser', 'date']
-            )
-            databox.append(
-                self.DataboxToken,
-                [{'$Visits_Advertiser': x['$Visits_Advertiser'], 'date': x['date'], x['Dimension']: x['Advertiser']} for x in grouped_advertiser_hour]
-            )
+        grouped_advertiser_hour = self.group_data2(
+            self,
+            _data=grouped_advertiser_hour_values,
+            keys=['Advertiser', 'date']
+        )
+        databox.append(
+            self.DataboxToken,
+            [{'$Visits_Advertiser': x['$Visits_Advertiser'], 'date': x['date'], x['Dimension']: x['Advertiser']} for x
+             in grouped_advertiser_hour]
+        )
 
-        print('Data for ', start_date_time, ' = ', data)
+        print('Data for ', start_date, ' = ', data)
 
     async def sync(self, _offset_=0):
 
@@ -345,7 +344,7 @@ async def main(_days_offset_):
 
 databox = databox.Databox()
 
-asyncio.run(main(_days_offset_=120))
+asyncio.run(main(_days_offset_=10))
 
 databox.push()
 
