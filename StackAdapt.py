@@ -234,9 +234,9 @@ class StackAdapt:
                         F'\n     startTime: \"{start_date_time}\",' \
                         F'\n    endTime: \"{start_date_time}\"\n  }}) {{' \
                         F'\n    graphData {{\n      ' \
-                        F'localDayOfWeek {{\n        timeString\n        footfallConv\n      }}\n      ' \
-                        F'localHourOfDay ' \
-                        F'{{\n        timeString\n        footfallConv\n     }}\n    }}\n    summaryData{{\n      ' \
+                        F'localDayOfWeekConnection {{\n  nodes {{\n      timeString\n        footfallConv\n      }}\n }}\n     ' \
+                        F'localHourOfDayConnection ' \
+                        F'{{\n  nodes {{\n      timeString\n        footfallConv\n     }}\n    }}\n }}\n    summaryData{{\n      ' \
                         F'footfallConv\n      totalCost\n      averageEcpv\n      visitationLift\n      pValue\n  ' \
                         F'    ' \
                         F'startDate\n      endDate\n    }}\n  }}\n}}'
@@ -246,8 +246,8 @@ class StackAdapt:
                 continue
 
             reports_data = result['data']['data']['footfallTrackingStats']['graphData']
-            local_day_of_week_data = reports_data['localDayOfWeek']
-            local_hour_of_day_data = reports_data['localHourOfDay']
+            local_day_of_week_data = reports_data['localDayOfWeekConnection']['nodes']
+            local_hour_of_day_data = reports_data['localHourOfDayConnection']['nodes']
             summary_data = result['data']['data']['footfallTrackingStats']['summaryData']
 
             for token in self.databoxTokens:
