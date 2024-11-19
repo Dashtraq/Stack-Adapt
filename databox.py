@@ -174,6 +174,8 @@ class Databox:
                           f'{response["code"]} {response["reason"]}')
                 else:
                     raise Exception('Databox > PushAPI timed out 5 times, aborting ...')
+            elif response["code"] == 401:
+                print('Error 401 - Deleted Account')
             else:
                 print(response['data'])
                 raise Exception(f'Databox > payload_push > Exception > {str(response["code"])} {response["reason"]} > '
